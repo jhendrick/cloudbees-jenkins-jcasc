@@ -1,0 +1,11 @@
+antisamy-markup-formatter:1.5
+configuration-as-code:1.4
+configuration-as-code-support:1.4
+momentjs:1.1.1
+handlebars:1.1.1
+github-oauth:0.31
+aws-credentials:1.23
+artifact-manager-s3:1.1
+aws-global-configuration:1.0
+github-branch-source:2.4.1
+slack:2.14

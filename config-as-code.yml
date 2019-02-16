@@ -1,0 +1,7 @@
+jenkins:
+  systemMessage: "jhendrick Jenkins configured by Jenkins Configuration as Code Plugin\n\n"
+  numExecutors: 1
+aws:
+  s3:
+    container: "kypseli"
+    prefix: "cb-core/artifacts/"
