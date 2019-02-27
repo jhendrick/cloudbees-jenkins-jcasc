@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-web
+  labels:
+    app: jenkins-web
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: jenkins-web
+  selector:
+    app: jenkins-web
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins-web
+  labels:
+    app: jenkins-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins-web
+  template:
+    metadata:
+      labels:
+        app: jenkins-web
+    spec:
+      containers:
+      - name: jenkins-web
+        image: jhendrick/jenkins-custom-image
+        ports:
+        - containerPort: 8080
