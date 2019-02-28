@@ -5,12 +5,11 @@ metadata:
   labels:
     app: jenkins-web
 spec:
-  type: NodePort
+  type: LoadBalancer
   ports:
     - port: 8080
       targetPort: 8080
-      protocol: TCP
-      name: jenkins-web
+      name: http
   selector:
     app: jenkins-web
 ---
