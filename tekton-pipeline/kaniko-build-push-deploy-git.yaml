@@ -1,0 +1,173 @@
+
+# This demo modifies the cluster (deploys to it) you must use a service
+# account with permission to admin the cluster (or make your default user an admin
+# of the `default` namespace with default-cluster-admin.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: default-cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: jenkins-docker-git
+spec:
+  type: git
+  params:
+    - name: revision
+      value: master
+    - name: url
+      value: https://github.com/jhendrick/jenkins-custom-docker
+---
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: jenkins-image-dockerhub
+spec:
+  type: image
+  params:
+    - name: url
+      value: jhendrick/jenkins-custom-image #configure: replace with where the image should go: perhaps your local registry or Dockerhub with a secret and configured service account
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: build-docker-image-from-git-source
+spec:
+  inputs:
+    resources:
+      - name: workspace
+        type: git
+    params:
+      - name: pathToDockerFile
+        description: The path to the dockerfile to build
+        default: /workspace/workspace/Dockerfile
+      - name: pathToContext
+        description:
+          The build context used by Kaniko
+          (https://github.com/GoogleContainerTools/kaniko#kaniko-build-contexts)
+        default: /workspace/workspace/
+  outputs:
+    resources:
+      - name: builtImage
+        type: image
+  steps:
+    - name: build-and-push
+      image: gcr.io/kaniko-project/executor
+      command:
+        - /kaniko/executor
+      args:
+        - --dockerfile=${inputs.params.pathToDockerFile}
+        - --destination=${outputs.resources.builtImage.url}
+        - --context=${inputs.params.pathToContext}
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: deploy-kubectl
+spec:
+  inputs:
+    resources:
+      - name: workspace
+        type: git
+      - name: image
+        type: image
+    params:
+      - name: path
+        description: Path to the manifest to apply
+      - name: yqArg
+        description:
+          Okay this is a hack, but I didn't feel right hard-coding `-d1` down
+          below
+      - name: yamlPathToImage
+        description:
+          The path to the image to replace in the yaml manifest (arg to yq)
+  steps:
+    - name: replace-image
+      image: mikefarah/yq
+      command: ["yq"]
+      args:
+        - "w"
+        - "-i"
+        - "${inputs.params.yqArg}"
+        - "${inputs.params.path}"
+        - "${inputs.params.yamlPathToImage}"
+        - "${inputs.resources.image.url}"
+    - name: run-kubectl
+      image: lachlanevenson/k8s-kubectl
+      command: ["kubectl"]
+      args:
+        - "apply"
+        - "-f"
+        - "${inputs.params.path}"
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Pipeline
+metadata:
+  name: jenkins-pipeline
+spec:
+  resources:
+    - name: source-repo
+      type: git
+    - name: web-image
+      type: image
+  tasks:
+    - name: build-jenkins-web
+      taskRef:
+        name: build-docker-image-from-git-source
+      params:
+        - name: pathToDockerFile
+          value: Dockerfile
+        - name: pathToContext
+          value: /workspace/workspace #configure: may change according to your source
+      resources:
+        inputs:
+          - name: workspace
+            resource: source-repo
+        outputs:
+          - name: builtImage
+            resource: web-image
+    - name: deploy-web
+      taskRef:
+        name: deploy-kubectl
+      resources:
+        inputs:
+          - name: workspace
+            resource: source-repo
+          - name: image
+            resource: web-image
+            from:
+              - build-jenkins-web
+      params:
+        - name: path
+          value: /workspace/workspace/kubernetes/deployment.yaml #configure: may change according to your source
+        - name: yqArg
+          value: "-d1"
+        - name: yamlPathToImage
+          value: "spec.template.spec.containers[0].image"
+---
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineRun
+metadata:
+  name: jenkins-pipeline-run
+spec:
+  pipelineRef:
+    name: jenkins-pipeline
+  trigger:
+    type: manual
+  resources:
+    - name: source-repo
+      resourceRef:
+        name: jenkins-docker-git
+    - name: web-image
+      resourceRef:
+        name: jenkins-image-dockerhub
