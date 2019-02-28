@@ -1,6 +1,6 @@
-# jenkins-custom-docker
+# cloudbees-jenkins-jcasc
 
-Example for building a Jenkins custom docker image with a customizable set of plugins
+Example for building a CloudBees Jenkins docker image with a customizable set of plugins utilizing JCasc
 
 Build:  docker build -t <tag-name> .
   
