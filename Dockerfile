@@ -1,4 +1,4 @@
-FROM jenkins/jenkins:lts
+FROM cloudbees/cloudbees-jenkins-distribution
 
 LABEL maintainer "jhendrick@cloudbees.com"
 
