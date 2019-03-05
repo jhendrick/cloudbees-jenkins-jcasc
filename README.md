@@ -29,10 +29,10 @@ kubectl apply -f tekton-build-push-deploy-git.yaml
 
 The above command will kick off the manual PipelineRun.  To get logs for the Tekton pipeline step:
 ```
-kubectl -n default logs <pod-name> -c <step name>
+kubectl -n default logs <pod-name> -c build-step-<step-name>
 ```
 
-Where step name is something like: *build-step-build-and-push*
+Where step name is something like: *build-and-push*
 
 The end result will be the CloudBees Jenkins container successfully deployed and running in the cluster.  To get the endpoint where CloudBees is running, run the following command:
 
